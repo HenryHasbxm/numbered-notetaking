@@ -127,6 +127,8 @@
   }
   .btn-icon:hover { border-color: var(--accent); }
   .btn-icon svg { width: 15px; height: 15px; stroke: var(--ink); }
+  .btn-icon.active { background: var(--accent); border-color: var(--accent); }
+  .btn-icon.active svg { stroke: var(--accent-contrast); }
 
   /* ---------- Layout ---------- */
   .layout {
@@ -397,6 +399,38 @@
   }
   .empty-state h2 { font-family: var(--font-serif); font-weight: 500; font-size: 19px; margin: 0; }
 
+  /* ---------- Graph view ---------- */
+  .graph-view {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .graph-toolbar {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  #graphSvg {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  #graphSvg:active { cursor: grabbing; }
+  .graph-view text {
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    fill: var(--ink-soft);
+    pointer-events: none;
+    user-select: none;
+  }
+  .graph-node-real { fill: var(--accent); stroke: var(--paper); stroke-width: 1.5px; cursor: pointer; }
+  .graph-node-phantom { fill: var(--paper-raised); stroke: var(--new-link); stroke-width: 1.5px; stroke-dasharray: 3,2; cursor: pointer; }
+  .graph-link { stroke: var(--line); stroke-width: 1.2px; }
+  .graph-link-phantom { stroke-dasharray: 3,3; }
+
   /* ---------- Modal ---------- */
   .modal-overlay {
     display: none;
@@ -491,9 +525,12 @@
     <button class="hamburger" id="hamburgerBtn" aria-label="Toggle note list">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
-    <span class="wordmark">Notebook</span>
+    <span class="wordmark">Numbered</span>
     <div class="topbar-spacer"></div>
-    <button class="btn btn-primary" id="newNoteBtn">+ New note</button>
+    <button class="btn-icon" id="graphToggleBtn" aria-label="Toggle graph view">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="7" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M8.1 8.1L11 16M15.9 8.1L13 16M8.3 6.4H15.7"/></svg>
+    </button>
+    <button class="btn btn-primary" id="newNoteBtn">+ New</button>
   </div>
 
   <div class="backdrop" id="backdrop"></div>
@@ -563,6 +600,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -659,6 +697,8 @@
   const CACHE = new Map();
   let CURRENT_ID = null;
   let MODE = 'write';
+  let VIEW = 'notes'; // 'notes' | 'graph'
+  let graphSim = null;
   let SETTINGS = { theme: 'light' };
   let SORT_MODE = 'recent';
   let titleAtOpen = '';
@@ -679,6 +719,7 @@
   const backdropEl = document.getElementById('backdrop');
   const hamburgerBtn = document.getElementById('hamburgerBtn');
   const newNoteBtn = document.getElementById('newNoteBtn');
+  const graphToggleBtn = document.getElementById('graphToggleBtn');
   const importBtn = document.getElementById('importBtn');
   const importInput = document.getElementById('importInput');
   const exportBtn = document.getElementById('exportBtn');
@@ -821,7 +862,18 @@
     wireEditorEvents();
   }
 
+  function stopGraphSim(){ if(graphSim){ graphSim.stop(); graphSim = null; } }
+
+  function exitGraphIfNeeded(){
+    if(VIEW === 'graph'){
+      VIEW = 'notes';
+      graphToggleBtn.classList.remove('active');
+      stopGraphSim();
+    }
+  }
+
   function mountEmptyState(){
+    exitGraphIfNeeded();
     editorPane.innerHTML = '<div class="empty-state">' +
       '<h2>No note open</h2>' +
       '<p class="muted">Pick a note from the list, or create a new one.</p>' +
@@ -886,8 +938,133 @@
     });
   }
 
+  /* ============ graph view ============ */
+  async function setView(view){
+    if(view === VIEW) return;
+    if(view === 'graph'){
+      flushSave();
+      VIEW = 'graph';
+      graphToggleBtn.classList.add('active');
+      await mountGraph();
+    } else {
+      exitGraphIfNeeded();
+      if(CURRENT_ID) await openNote(CURRENT_ID); else mountEmptyState();
+    }
+  }
+  graphToggleBtn.addEventListener('click', function(){ setView(VIEW === 'graph' ? 'notes' : 'graph'); });
+
+  async function mountGraph(){
+    editorPane.innerHTML =
+      '<div class="graph-view">' +
+      '<div class="graph-toolbar"><span class="muted">Drag to rearrange &middot; scroll to zoom &middot; click a node to open it</span></div>' +
+      '<svg id="graphSvg"></svg>' +
+      '</div>';
+    await ensureAllLoaded();
+    buildAndRenderGraph();
+  }
+
+  function buildAndRenderGraph(){
+    stopGraphSim();
+    const svgEl = document.getElementById('graphSvg');
+    if(!svgEl || typeof d3 === 'undefined') return;
+    const rect = svgEl.getBoundingClientRect();
+    const width = rect.width || 600;
+    const height = rect.height || 400;
+
+    const titleMap = new Map(INDEX.map(function(e){ return [e.title.toLowerCase(), e]; }));
+    const nodesById = new Map();
+    INDEX.forEach(function(e){ nodesById.set(e.id, { id: e.id, title: e.title, real: true }); });
+
+    const links = [];
+    INDEX.forEach(function(e){
+      const n = CACHE.get(e.id);
+      if(!n || !n.content) return;
+      const found = n.content.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g) || [];
+      found.forEach(function(raw){
+        const title = raw.slice(2, -2).split('|')[0].trim();
+        if(!title) return;
+        const target = titleMap.get(title.toLowerCase());
+        let targetId;
+        if(target){ targetId = target.id; }
+        else {
+          targetId = 'phantom:' + title.toLowerCase();
+          if(!nodesById.has(targetId)) nodesById.set(targetId, { id: targetId, title: title, real: false });
+        }
+        if(targetId !== e.id) links.push({ source: e.id, target: targetId });
+      });
+    });
+
+    const nodes = Array.from(nodesById.values());
+    if(!nodes.length){
+      svgEl.parentElement.innerHTML = '<div class="empty-state"><h2>Nothing to graph yet</h2><p class="muted">Create a couple of notes and link them with [[double brackets]].</p></div>';
+      return;
+    }
+
+    const degree = new Map();
+    nodes.forEach(function(n){ degree.set(n.id, 0); });
+    links.forEach(function(l){
+      degree.set(l.source, (degree.get(l.source) || 0) + 1);
+      degree.set(l.target, (degree.get(l.target) || 0) + 1);
+    });
+    function radiusFor(d){ return 6 + Math.min(degree.get(d.id) || 0, 8) * 1.4; }
+
+    const svg = d3.select(svgEl).attr('viewBox', '0 0 ' + width + ' ' + height);
+    const container = svg.append('g');
+    svg.call(d3.zoom().scaleExtent([0.2, 4]).on('zoom', function(event){
+      container.attr('transform', event.transform);
+    }));
+
+    const linkSel = container.selectAll('line').data(links).enter().append('line')
+      .attr('class', function(d){
+        const t = nodesById.get(typeof d.target === 'object' ? d.target.id : d.target);
+        return 'graph-link' + (t && !t.real ? ' graph-link-phantom' : '');
+      });
+
+    const nodeGroup = container.selectAll('g.gnode').data(nodes).enter().append('g')
+      .attr('class', 'gnode')
+      .style('cursor', 'pointer')
+      .call(d3.drag()
+        .on('start', function(event, d){ if(!event.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; })
+        .on('drag', function(event, d){ d.fx = event.x; d.fy = event.y; })
+        .on('end', function(event, d){ if(!event.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }))
+      .on('click', function(event, d){
+        if(d.real) switchNote(d.id); else createNoteWithTitle(d.title);
+      });
+
+    nodeGroup.append('circle')
+      .attr('r', radiusFor)
+      .attr('class', function(d){ return d.real ? 'graph-node-real' : 'graph-node-phantom'; });
+
+    nodeGroup.append('text')
+      .attr('dy', function(d){ return -(radiusFor(d) + 5); })
+      .attr('text-anchor', 'middle')
+      .text(function(d){ return d.title; });
+
+    const sim = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(function(d){ return d.id; }).distance(75).strength(0.55))
+      .force('charge', d3.forceManyBody().strength(-230))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collide', d3.forceCollide().radius(function(d){ return radiusFor(d) + 14; }));
+
+    sim.on('tick', function(){
+      linkSel
+        .attr('x1', function(d){ return d.source.x; })
+        .attr('y1', function(d){ return d.source.y; })
+        .attr('x2', function(d){ return d.target.x; })
+        .attr('y2', function(d){ return d.target.y; });
+      nodeGroup.attr('transform', function(d){ return 'translate(' + d.x + ',' + d.y + ')'; });
+    });
+
+    graphSim = sim;
+  }
+
+  window.addEventListener('resize', debounce(function(){
+    if(VIEW === 'graph') buildAndRenderGraph();
+  }, 300));
+
   /* ============ open / switch notes ============ */
   async function openNote(id){
+    exitGraphIfNeeded();
     let n = CACHE.get(id);
     if(!n){ n = await getNoteById(id); if(n) CACHE.set(id, n); }
     if(!n){ CURRENT_ID = null; mountEmptyState(); return; }
@@ -1178,7 +1355,7 @@
     });
     toast('Zipping ' + INDEX.length + ' notes…');
     const blob = await zip.generateAsync({type:'blob'});
-    downloadBlob(blob, 'notebook-export-'+dateStamp()+'.zip');
+    downloadBlob(blob, 'numbered-export-'+dateStamp()+'.zip');
     toast('Vault exported');
   });
 
