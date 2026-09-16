@@ -6,4 +6,4 @@ My inspiration is based off of the notetaking app called Obsidian (please don’
 
 This note taking app is going to be for church notes, since my friend was taking notes in church when he complained.
 
-That’s about it. Happy Note Taking!
+That’s about it. Happy Notetaking!
