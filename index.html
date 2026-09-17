@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Numbered - Notetaking</title>
+<title>Numbered</title>
 <style>
   :root {
     --paper: #FAF9FC;
@@ -188,6 +188,7 @@
   .graph-node-folder { fill: var(--accent); stroke: var(--paper); stroke-width: 1.5px; cursor: pointer; }
   .graph-link { stroke: var(--line); stroke-width: 1.2px; }
   .graph-link-phantom { stroke-dasharray: 3,3; }
+  .graph-empty-text { font-size: 13px; fill: var(--ink-faint); }
 
   /* ---------- Modal ---------- */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); align-items: flex-start; justify-content: center; padding-top: 10vh; z-index: 50; }
@@ -202,11 +203,21 @@
   .picker-list li:hover, .picker-list li.picker-active { background: var(--accent-tint); }
   .picker-list .file-id { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
   .picker-hint { font-size: 12px; color: var(--ink-faint); margin-top: 8px; }
-  .bible-row { display: flex; gap: 8px; margin-bottom: 8px; }
-  .bible-row .picker-input { margin-bottom: 0; }
-  .bible-select { padding: 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper); font-size: 13px; }
-  .bible-result h4 { font-family: var(--font-serif); font-weight: 500; margin: 0 0 8px; font-size: 16px; }
-  .bible-text { font-family: var(--font-serif); font-size: 15px; line-height: 1.7; margin: 0 0 10px; }
+  .bible-view { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .bible-toolbar-main { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bible-toolbar-jump { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bible-toolbar-jump .picker-input { flex: 1 1 200px; margin-bottom: 0; }
+  .bible-select { padding: 7px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper-raised); font-size: 13px; color: var(--ink); }
+  .bible-reader { flex: 1 1 auto; overflow-y: auto; padding: 20px 26px 40px; max-width: 72ch; }
+  .bible-chapter-heading { font-family: var(--font-serif); font-weight: 500; font-size: 20px; margin: 0 0 16px; }
+  .bible-section-heading { font-family: var(--font-serif); font-weight: 600; font-size: 15px; margin: 14px 0 8px; }
+  .bible-copyright { margin-top: 18px; font-size: 11px; }
+  .bible-verse { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; font-family: var(--font-serif); font-size: 15.5px; line-height: 1.7; }
+  .verse-num { font-family: var(--font-sans); font-size: 11px; color: var(--ink-faint); flex: 0 0 auto; margin-top: 4px; min-width: 20px; text-align: right; }
+  .verse-text { flex: 1 1 auto; }
+  .verse-insert { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; opacity: 0.35; margin-top: 2px; }
+  .verse-insert:hover { opacity: 1; background: var(--accent-tint); }
+  .verse-insert svg { width: 12px; height: 12px; stroke: var(--ink-faint); }
 
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 60; max-width: 88vw; text-align: center; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -231,7 +242,7 @@
     </button>
     <span class="wordmark">Numbered</span>
     <div class="topbar-spacer"></div>
-    <button class="btn-icon" id="bibleToggleBtn" aria-label="Bible lookup" title="Bible lookup">
+    <button class="btn-icon" id="bibleToggleBtn" aria-label="Bible" title="Bible">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-2-1.5-5-2-8-1v13c3-1 6-0.5 8 1c2-1.5 5-2 8-1V5c-3-1-6-0.5-8 1z"/><path d="M12 6v13"/></svg>
     </button>
     <button class="btn-icon" id="graphToggleBtn" aria-label="Toggle graph view" title="Graph view">
@@ -845,7 +856,7 @@
   }
 
   function mountEmptyState(){
-    exitGraphIfNeeded();
+    exitSpecialViewIfNeeded();
     editorPane.innerHTML = '<div class="empty-state">' +
       '<h2>No note open</h2>' +
       '<p class="muted">Pick a note from the list, or create a new one.</p>' +
@@ -913,16 +924,19 @@
   }
 
   /* ============ open / switch notes ============ */
-  function exitGraphIfNeeded(){
+  function exitSpecialViewIfNeeded(){
     if(VIEW === 'graph'){
       VIEW = 'notes';
       graphToggleBtn.classList.remove('active');
       stopGraphSim();
+    } else if(VIEW === 'bible'){
+      VIEW = 'notes';
+      bibleToggleBtn.classList.remove('active');
     }
   }
 
   async function openNote(id){
-    exitGraphIfNeeded();
+    exitSpecialViewIfNeeded();
     var n = CACHE.get(id);
     if(!n){ n = await getNoteById(id); if(n) CACHE.set(id, n); }
     if(!n){ CURRENT_ID = null; mountEmptyState(); return; }
@@ -1387,19 +1401,24 @@
   /* ============ graph view ============ */
   function stopGraphSim(){ if(graphSim){ graphSim.stop(); graphSim = null; } }
 
-  async function setView(view){
-    if(view === VIEW) return;
+  async function setActiveView(view){
+    if(view === VIEW) view = 'notes'; /* clicking the active view's button again returns to notes */
+    flushSave();
+    if(VIEW === 'graph'){ graphToggleBtn.classList.remove('active'); stopGraphSim(); }
+    if(VIEW === 'bible'){ bibleToggleBtn.classList.remove('active'); }
+    VIEW = view;
     if(view === 'graph'){
-      flushSave();
-      VIEW = 'graph';
       graphToggleBtn.classList.add('active');
       await mountGraph();
+    } else if(view === 'bible'){
+      bibleToggleBtn.classList.add('active');
+      await mountBible();
     } else {
-      exitGraphIfNeeded();
       if(CURRENT_ID) await openNote(CURRENT_ID); else mountEmptyState();
     }
   }
-  graphToggleBtn.addEventListener('click', function(){ setView(VIEW === 'graph' ? 'notes' : 'graph'); });
+  graphToggleBtn.addEventListener('click', function(){ setActiveView('graph'); });
+  bibleToggleBtn.addEventListener('click', function(){ setActiveView('bible'); });
 
   async function mountGraph(){
     editorPane.innerHTML =
@@ -1545,18 +1564,24 @@
     stopGraphSim();
     var svgEl = document.getElementById('graphSvg');
     if(!svgEl || typeof d3 === 'undefined') return;
+    var svg = d3.select(svgEl);
+    svg.selectAll('*').remove(); /* always clear the previous graph before drawing the next one */
+
     var rect = svgEl.getBoundingClientRect();
     var width = rect.width || 600;
     var height = rect.height || 400;
+    svg.attr('viewBox', '0 0 '+width+' '+height);
 
     var data = buildGraphData();
     var nodes = data.nodes;
     var links = data.links;
 
     if(!nodes.length){
-      svgEl.outerHTML = '<div class="empty-state"><h2>Nothing here yet</h2><p class="muted">'+
-        (GRAPH_SCOPE_MODE==='custom' ? 'Add notes to this graph from any note\u2019s graph icon.' : 'Create a note or folder, or link notes with [[double brackets]].') +
-        '</p></div>';
+      svg.append('text')
+        .attr('x', width/2).attr('y', height/2)
+        .attr('text-anchor', 'middle')
+        .attr('class', 'graph-empty-text')
+        .text(GRAPH_SCOPE_MODE==='custom' ? 'Add notes to this graph from any note\u2019s graph icon.' : 'Create a note or folder, or link notes with [[double brackets]].');
       return;
     }
 
@@ -1572,7 +1597,6 @@
       return 6 + Math.min(deg,8) * 1.4;
     }
 
-    var svg = d3.select(svgEl).attr('viewBox', '0 0 '+width+' '+height);
     var container = svg.append('g');
     svg.call(d3.zoom().scaleExtent([0.2,4]).on('zoom', function(event){ container.attr('transform', event.transform); }));
 
@@ -1636,65 +1660,348 @@
     if(VIEW === 'graph') buildAndRenderGraph();
   }, 300));
 
-  /* ============ Bible lookup ============ */
-  bibleToggleBtn.addEventListener('click', function(){
-    showModal(
-      '<h3>Bible lookup</h3>'+
-      '<div class="bible-row">'+
-      '<input type="text" id="bibleRefInput" class="picker-input" placeholder="e.g. John 3:16 or Psalm 23" style="flex:1;" />'+
-      '<select id="bibleTranslationSelect" class="bible-select">'+
-      '<option value="web">WEB</option><option value="kjv">KJV</option><option value="asv">ASV</option>'+
-      '</select>'+
-      '</div>'+
-      '<button class="btn btn-primary" id="bibleLookupBtn" style="margin-bottom:10px;">Look up</button>'+
-      '<div id="bibleResult" class="bible-result"><p class="muted">Look up a passage to read it here.</p></div>'+
-      '<p class="picker-hint">Public-domain translations only. NASB2020 is copyrighted by the Lockman Foundation and cannot be bundled here \u2014 ask if you would like help wiring in your own licensed API key.</p>'
-    );
-    var refInput = document.getElementById('bibleRefInput');
-    document.getElementById('bibleLookupBtn').addEventListener('click', bibleLookup);
-    refInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); bibleLookup(); } });
-    setTimeout(function(){ refInput.focus(); }, 0);
-  });
+  /* ============ Bible view ============ */
+  var BIBLE_BOOKS = [
+    ['Genesis',50],['Exodus',40],['Leviticus',27],['Numbers',36],['Deuteronomy',34],
+    ['Joshua',24],['Judges',21],['Ruth',4],['1 Samuel',31],['2 Samuel',24],
+    ['1 Kings',22],['2 Kings',25],['1 Chronicles',29],['2 Chronicles',36],['Ezra',10],
+    ['Nehemiah',13],['Esther',10],['Job',42],['Psalms',150],['Proverbs',31],
+    ['Ecclesiastes',12],['Song of Solomon',8],['Isaiah',66],['Jeremiah',52],['Lamentations',5],
+    ['Ezekiel',48],['Daniel',12],['Hosea',14],['Joel',3],['Amos',9],
+    ['Obadiah',1],['Jonah',4],['Micah',7],['Nahum',3],['Habakkuk',3],
+    ['Zephaniah',3],['Haggai',2],['Zechariah',14],['Malachi',4],
+    ['Matthew',28],['Mark',16],['Luke',24],['John',21],['Acts',28],
+    ['Romans',16],['1 Corinthians',16],['2 Corinthians',13],['Galatians',6],['Ephesians',6],
+    ['Philippians',4],['Colossians',4],['1 Thessalonians',5],['2 Thessalonians',3],['1 Timothy',6],
+    ['2 Timothy',4],['Titus',3],['Philemon',1],['Hebrews',13],['James',5],
+    ['1 Peter',5],['2 Peter',3],['1 John',5],['2 John',1],['3 John',1],
+    ['Jude',1],['Revelation',22]
+  ];
+  var BIBLE_OT_COUNT = 39;
+  var PLUS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+  var CHEVRON_LEFT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+  var CHEVRON_RIGHT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  var GEAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
 
-  async function bibleLookup(){
-    var refInput = document.getElementById('bibleRefInput');
-    var ref = refInput ? refInput.value.trim() : '';
-    var translation = document.getElementById('bibleTranslationSelect').value;
-    var resultEl = document.getElementById('bibleResult');
-    if(!ref){ resultEl.innerHTML = '<p class="muted">Type a reference first, like "John 3:16".</p>'; return; }
-    resultEl.innerHTML = '<p class="muted">Looking up '+escapeHtml(ref)+'\u2026</p>';
-    try {
-      var url = 'https://bible-api.com/' + encodeURIComponent(ref) + '?translation=' + encodeURIComponent(translation);
-      var res = await fetch(url);
-      var data = await res.json();
-      if(data.error){ resultEl.innerHTML = '<p class="muted">'+escapeHtml(data.error)+'</p>'; return; }
-      var text = (data.text || '').trim();
-      var reference = data.reference || ref;
-      var transName = data.translation_name || translation.toUpperCase();
-      resultEl.innerHTML =
-        '<h4>'+escapeHtml(reference)+' <span class="muted">('+escapeHtml(transName)+')</span></h4>'+
-        '<p class="bible-text">'+escapeHtml(text).replace(/\n+/g,'<br>')+'</p>'+
-        '<button class="btn" id="bibleInsertBtn">Insert into note</button>';
-      document.getElementById('bibleInsertBtn').addEventListener('click', function(){
-        insertBibleTextIntoNote(reference, text, transName);
+  /* USFM book codes, used only for the API.Bible integration below */
+  var USFM_BOOK_CODES = {
+    'Genesis':'GEN','Exodus':'EXO','Leviticus':'LEV','Numbers':'NUM','Deuteronomy':'DEU',
+    'Joshua':'JOS','Judges':'JDG','Ruth':'RUT','1 Samuel':'1SA','2 Samuel':'2SA',
+    '1 Kings':'1KI','2 Kings':'2KI','1 Chronicles':'1CH','2 Chronicles':'2CH','Ezra':'EZR',
+    'Nehemiah':'NEH','Esther':'EST','Job':'JOB','Psalms':'PSA','Proverbs':'PRO',
+    'Ecclesiastes':'ECC','Song of Solomon':'SNG','Isaiah':'ISA','Jeremiah':'JER','Lamentations':'LAM',
+    'Ezekiel':'EZK','Daniel':'DAN','Hosea':'HOS','Joel':'JOL','Amos':'AMO',
+    'Obadiah':'OBA','Jonah':'JON','Micah':'MIC','Nahum':'NAM','Habakkuk':'HAB',
+    'Zephaniah':'ZEP','Haggai':'HAG','Zechariah':'ZEC','Malachi':'MAL',
+    'Matthew':'MAT','Mark':'MRK','Luke':'LUK','John':'JHN','Acts':'ACT',
+    'Romans':'ROM','1 Corinthians':'1CO','2 Corinthians':'2CO','Galatians':'GAL','Ephesians':'EPH',
+    'Philippians':'PHP','Colossians':'COL','1 Thessalonians':'1TH','2 Thessalonians':'2TH','1 Timothy':'1TI',
+    '2 Timothy':'2TI','Titus':'TIT','Philemon':'PHM','Hebrews':'HEB','James':'JAS',
+    '1 Peter':'1PE','2 Peter':'2PE','1 John':'1JN','2 John':'2JN','3 John':'3JN',
+    'Jude':'JUD','Revelation':'REV'
+  };
+
+  async function loadBibleApiSettings(){
+    var raw = await sGet('bibleApiSettings');
+    if(!raw) return { apiKey:'', bibleId:'' };
+    try { return Object.assign({apiKey:'',bibleId:''}, JSON.parse(raw)); } catch(e){ return {apiKey:'',bibleId:''}; }
+  }
+  function saveBibleApiSettings(s){ return sSet('bibleApiSettings', JSON.stringify(s)); }
+
+  function openBibleApiSettings(){
+    loadBibleApiSettings().then(function(s){
+      showModal(
+        '<h3>NASB2020 via API.Bible</h3>'+
+        '<p>Saved only in this browser\u2019s local storage \u2014 never written into the file itself, so it stays out of anything you export or publish.</p>'+
+        '<input type="text" id="bibleApiKeyInput" class="picker-input" placeholder="API key" value="'+escapeHtml(s.apiKey)+'" autocomplete="off" />'+
+        '<input type="text" id="bibleApiIdInput" class="picker-input" placeholder="Bible ID" value="'+escapeHtml(s.bibleId)+'" autocomplete="off" />'+
+        '<div class="modal-actions"><button class="btn" id="bibleApiCancelBtn">Cancel</button><button class="btn btn-primary" id="bibleApiSaveBtn">Save</button></div>'
+      );
+      document.getElementById('bibleApiCancelBtn').addEventListener('click', hideModal);
+      document.getElementById('bibleApiSaveBtn').addEventListener('click', async function(){
+        var apiKey = document.getElementById('bibleApiKeyInput').value.trim();
+        var bibleId = document.getElementById('bibleApiIdInput').value.trim();
+        await saveBibleApiSettings({ apiKey: apiKey, bibleId: bibleId });
+        hideModal();
+        toast('Saved \u2014 pick NASB2020 from the translation dropdown.');
+        if(BIBLE_TRANSLATION === 'apibible') loadBibleChapter();
       });
+    });
+  }
+
+  /* Parses API.Bible's HTML chapter content into { number, text, heading } per verse */
+  function parseApiBibleHtml(html){
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var verses = [];
+    var pendingHeading = null;
+    var currentVerse = null;
+    function isHeadingEl(node){
+      if(!node.classList) return false;
+      return node.classList.contains('s') || node.classList.contains('s1') || node.classList.contains('s2') || node.classList.contains('ms') || node.classList.contains('mr');
+    }
+    function walk(node){
+      if(node.nodeType === 1){
+        if(node.tagName === 'SPAN' && node.classList.contains('v')){
+          if(currentVerse) verses.push(currentVerse);
+          currentVerse = { number: node.getAttribute('data-number') || node.textContent.trim(), text: '', heading: pendingHeading };
+          pendingHeading = null;
+          return;
+        }
+        if(isHeadingEl(node)){
+          var t = node.textContent.trim();
+          if(t) pendingHeading = pendingHeading ? (pendingHeading+' '+t) : t;
+          return;
+        }
+        for(var i=0; i<node.childNodes.length; i++){ walk(node.childNodes[i]); }
+        if(currentVerse && node.tagName === 'P'){ currentVerse.text += ' '; }
+      } else if(node.nodeType === 3){
+        if(currentVerse) currentVerse.text += node.textContent;
+      }
+    }
+    walk(doc.body);
+    if(currentVerse) verses.push(currentVerse);
+    verses.forEach(function(v){ v.text = v.text.replace(/\s+/g,' ').trim(); });
+    return verses;
+  }
+
+  async function loadApiBibleChapter(){
+    var reader = document.getElementById('bibleReader');
+    var settings = await loadBibleApiSettings();
+    if(!settings.apiKey || !settings.bibleId){
+      reader.innerHTML = '<p class="muted">Add your API.Bible key and Bible ID (gear icon above) to read NASB2020.</p>';
+      return;
+    }
+    var usfm = USFM_BOOK_CODES[BIBLE_BOOK];
+    if(!usfm){ reader.innerHTML = '<p class="muted">This book is not mapped for API.Bible yet.</p>'; return; }
+    var chapterId = usfm + '.' + BIBLE_CHAPTER;
+    try {
+      var url = 'https://api.scripture.api.bible/v1/bibles/' + encodeURIComponent(settings.bibleId) + '/chapters/' + encodeURIComponent(chapterId) + '?content-type=html';
+      var res = await fetch(url, { headers: { 'api-key': settings.apiKey } });
+      if(!res.ok){
+        reader.innerHTML = '<p class="muted">API.Bible returned an error (status '+res.status+'). Double-check the key and Bible ID in settings.</p>';
+        return;
+      }
+      var data = await res.json();
+      var chapter = data.data;
+      if(!chapter || !chapter.content){
+        reader.innerHTML = '<p class="muted">No content returned for this chapter.</p>';
+        return;
+      }
+      var verses = parseApiBibleHtml(chapter.content);
+      var transName = 'NASB 2020';
+      var html = '<h3 class="bible-chapter-heading">'+escapeHtml(chapter.reference || (BIBLE_BOOK+' '+BIBLE_CHAPTER))+' <span class="muted">('+transName+')</span></h3>';
+      verses.forEach(function(v){
+        if(v.heading) html += '<p class="bible-section-heading">'+escapeHtml(v.heading)+'</p>';
+        html += '<div class="bible-verse">'+
+          '<span class="verse-num">'+escapeHtml(String(v.number))+'</span>'+
+          '<span class="verse-text">'+escapeHtml(v.text)+'</span>'+
+          '<button class="verse-insert" data-verse="'+escapeHtml(String(v.number))+'" title="Insert into note">'+PLUS_SVG+'</button>'+
+          '</div>';
+      });
+      if(chapter.copyright){ html += '<p class="bible-copyright muted">'+escapeHtml(chapter.copyright)+'</p>'; }
+      reader.innerHTML = html;
+      lastChapterData = { book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION, verses: verses.map(function(v){ return {verse:v.number, text:v.text}; }), transName: transName };
+      reader.querySelectorAll('.verse-insert').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var vnum = btn.getAttribute('data-verse');
+          var v = verses.find(function(x){ return String(x.number)===vnum; });
+          if(v) insertVerseIntoCurrentNote(BIBLE_BOOK+' '+BIBLE_CHAPTER+':'+vnum, v.text, transName);
+        });
+      });
+      saveBibleState();
     } catch(e){
-      resultEl.innerHTML = '<p class="muted">Could not reach the Bible lookup service. Check your connection and try again.</p>';
+      reader.innerHTML = '<p class="muted">Could not reach API.Bible. If this keeps happening it may be blocking direct browser requests (it is built mainly for server-side use) \u2014 tell me and I can help set up a small proxy.</p>';
     }
   }
 
-  function insertBibleTextIntoNote(reference, text, transName){
-    if(!CURRENT_ID || VIEW !== 'notes'){ toast('Open a note first to insert into it.'); return; }
-    var ta = dom.contentTextarea;
-    var quote = '\n\n> **'+reference+'** ('+transName+')\n> ' + text.trim().split('\n').join('\n> ') + '\n\n';
-    var pos = (ta.selectionStart != null) ? ta.selectionStart : ta.value.length;
-    ta.value = ta.value.slice(0,pos) + quote + ta.value.slice(pos);
-    ta.setSelectionRange(pos+quote.length, pos+quote.length);
-    hideModal();
-    ta.focus();
-    if(MODE==='read') renderPreview();
-    scheduleSave();
-    toast('Inserted ' + reference);
+  var BIBLE_BOOK = 'John';
+  var BIBLE_CHAPTER = 3;
+  var BIBLE_TRANSLATION = 'web';
+  var lastChapterData = null;
+
+  async function loadBibleState(){
+    var raw = await sGet('bibleState');
+    if(!raw) return {};
+    try { return JSON.parse(raw); } catch(e){ return {}; }
+  }
+  function saveBibleState(){
+    sSet('bibleState', JSON.stringify({ book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION }));
+  }
+
+  async function mountBible(){
+    var saved = await loadBibleState();
+    if(saved.book) BIBLE_BOOK = saved.book;
+    if(saved.chapter) BIBLE_CHAPTER = saved.chapter;
+    if(saved.translation) BIBLE_TRANSLATION = saved.translation;
+    editorPane.innerHTML =
+      '<div class="bible-view">' +
+      '<div class="bible-toolbar-main">' +
+      '<select id="bibleBookSelect" class="bible-select"></select>' +
+      '<select id="bibleChapterSelect" class="bible-select"></select>' +
+      '<select id="bibleTranslationSelectMain" class="bible-select">' +
+      '<option value="web">WEB</option><option value="kjv">KJV</option><option value="asv">ASV</option><option value="apibible">NASB2020</option>' +
+      '</select>' +
+      '<button class="btn-icon" id="bibleApiSettingsBtn" aria-label="NASB2020 settings" title="NASB2020 settings">'+GEAR_SVG+'</button>' +
+      '<button class="btn-icon" id="biblePrevBtn" aria-label="Previous chapter" title="Previous chapter">'+CHEVRON_LEFT_SVG+'</button>' +
+      '<button class="btn-icon" id="bibleNextBtn" aria-label="Next chapter" title="Next chapter">'+CHEVRON_RIGHT_SVG+'</button>' +
+      '</div>' +
+      '<div class="bible-toolbar-jump">' +
+      '<input type="text" id="bibleJumpInput" class="picker-input" placeholder="Jump to e.g. Psalm 23 or John 3:16" autocomplete="off" />' +
+      '<button class="btn" id="bibleJumpBtn">Go</button>' +
+      '<button class="btn" id="bibleInsertChapterBtn">Insert chapter</button>' +
+      '</div>' +
+      '<div class="bible-reader" id="bibleReader"><p class="muted">Loading\u2026</p></div>' +
+      '</div>';
+    wireBibleControls();
+    populateBookSelect();
+    populateChapterSelect();
+    document.getElementById('bibleTranslationSelectMain').value = BIBLE_TRANSLATION;
+    loadBibleChapter();
+  }
+
+  function populateBookSelect(){
+    var sel = document.getElementById('bibleBookSelect');
+    if(!sel) return;
+    var html = '<optgroup label="Old Testament">';
+    BIBLE_BOOKS.forEach(function(b, i){
+      if(i === BIBLE_OT_COUNT) html += '</optgroup><optgroup label="New Testament">';
+      html += '<option value="'+escapeHtml(b[0])+'"'+(b[0]===BIBLE_BOOK?' selected':'')+'>'+escapeHtml(b[0])+'</option>';
+    });
+    html += '</optgroup>';
+    sel.innerHTML = html;
+  }
+  function populateChapterSelect(){
+    var sel = document.getElementById('bibleChapterSelect');
+    if(!sel) return;
+    var book = BIBLE_BOOKS.find(function(b){ return b[0]===BIBLE_BOOK; });
+    var count = book ? book[1] : 1;
+    var html = '';
+    for(var i=1;i<=count;i++){ html += '<option value="'+i+'"'+(i===BIBLE_CHAPTER?' selected':'')+'>'+i+'</option>'; }
+    sel.innerHTML = html;
+  }
+
+  function wireBibleControls(){
+    document.getElementById('bibleBookSelect').addEventListener('change', function(e){
+      BIBLE_BOOK = e.target.value;
+      BIBLE_CHAPTER = 1;
+      populateChapterSelect();
+      loadBibleChapter();
+    });
+    document.getElementById('bibleChapterSelect').addEventListener('change', function(e){
+      BIBLE_CHAPTER = parseInt(e.target.value,10) || 1;
+      loadBibleChapter();
+    });
+    document.getElementById('bibleTranslationSelectMain').addEventListener('change', function(e){
+      BIBLE_TRANSLATION = e.target.value;
+      loadBibleChapter();
+    });
+    document.getElementById('bibleApiSettingsBtn').addEventListener('click', openBibleApiSettings);
+    document.getElementById('biblePrevBtn').addEventListener('click', function(){ bibleStep(-1); });
+    document.getElementById('bibleNextBtn').addEventListener('click', function(){ bibleStep(1); });
+    document.getElementById('bibleJumpBtn').addEventListener('click', bibleJump);
+    document.getElementById('bibleJumpInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); bibleJump(); } });
+    document.getElementById('bibleInsertChapterBtn').addEventListener('click', async function(){
+      if(!CURRENT_ID){ toast('Open a note first, then come back to insert into it.'); return; }
+      if(!lastChapterData || !lastChapterData.verses.length){ toast('Nothing loaded yet.'); return; }
+      var d = lastChapterData;
+      var body = d.verses.map(function(v){ return v.verse+' '+(v.text||'').trim(); }).join(' ');
+      await insertVerseIntoCurrentNote(d.book+' '+d.chapter, body, d.transName);
+    });
+  }
+
+  function bibleStep(delta){
+    var idx = BIBLE_BOOKS.findIndex(function(b){ return b[0]===BIBLE_BOOK; });
+    if(idx===-1) idx = 0;
+    var count = BIBLE_BOOKS[idx][1];
+    var newChapter = BIBLE_CHAPTER + delta;
+    if(newChapter < 1){
+      idx = Math.max(0, idx-1);
+      BIBLE_BOOK = BIBLE_BOOKS[idx][0];
+      BIBLE_CHAPTER = BIBLE_BOOKS[idx][1];
+    } else if(newChapter > count){
+      idx = Math.min(BIBLE_BOOKS.length-1, idx+1);
+      BIBLE_BOOK = BIBLE_BOOKS[idx][0];
+      BIBLE_CHAPTER = 1;
+    } else {
+      BIBLE_CHAPTER = newChapter;
+    }
+    populateBookSelect();
+    populateChapterSelect();
+    loadBibleChapter();
+  }
+
+  function bibleJump(){
+    var input = document.getElementById('bibleJumpInput');
+    var val = (input.value||'').trim();
+    if(!val) return;
+    var m = val.match(/^(.*?)(\d+)(?::(\d+))?$/);
+    if(!m){ toast('Could not read that reference.'); return; }
+    var bookPart = m[1].trim();
+    var chapterPart = parseInt(m[2],10);
+    var found = BIBLE_BOOKS.find(function(b){ return b[0].toLowerCase() === bookPart.toLowerCase(); });
+    if(!found){ found = BIBLE_BOOKS.find(function(b){ return b[0].toLowerCase().indexOf(bookPart.toLowerCase()) === 0; }); }
+    if(!found){ toast('Book not recognized: ' + bookPart); return; }
+    BIBLE_BOOK = found[0];
+    BIBLE_CHAPTER = Math.min(Math.max(1, chapterPart||1), found[1]);
+    populateBookSelect();
+    populateChapterSelect();
+    loadBibleChapter();
+    input.value = '';
+  }
+
+  async function loadBibleChapter(){
+    var reader = document.getElementById('bibleReader');
+    if(!reader) return;
+    reader.innerHTML = '<p class="muted">Loading\u2026</p>';
+    if(BIBLE_TRANSLATION === 'apibible'){
+      await loadApiBibleChapter();
+      return;
+    }
+    try {
+      var ref = BIBLE_BOOK + ' ' + BIBLE_CHAPTER;
+      var url = 'https://bible-api.com/' + encodeURIComponent(ref) + '?translation=' + encodeURIComponent(BIBLE_TRANSLATION);
+      var res = await fetch(url);
+      var data = await res.json();
+      if(data.error){ reader.innerHTML = '<p class="muted">'+escapeHtml(data.error)+'</p>'; return; }
+      var verses = data.verses || [];
+      var transName = data.translation_name || BIBLE_TRANSLATION.toUpperCase();
+      var html = '<h3 class="bible-chapter-heading">'+escapeHtml(BIBLE_BOOK)+' '+BIBLE_CHAPTER+' <span class="muted">('+escapeHtml(transName)+')</span></h3>';
+      verses.forEach(function(v){
+        html += '<div class="bible-verse">'+
+          '<span class="verse-num">'+v.verse+'</span>'+
+          '<span class="verse-text">'+escapeHtml((v.text||'').trim())+'</span>'+
+          '<button class="verse-insert" data-verse="'+v.verse+'" title="Insert into note">'+PLUS_SVG+'</button>'+
+          '</div>';
+      });
+      reader.innerHTML = html;
+      lastChapterData = { book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION, verses: verses, transName: transName };
+      reader.querySelectorAll('.verse-insert').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var vnum = btn.getAttribute('data-verse');
+          var v = verses.find(function(x){ return String(x.verse)===vnum; });
+          if(v) insertVerseIntoCurrentNote(BIBLE_BOOK+' '+BIBLE_CHAPTER+':'+vnum, v.text, transName);
+        });
+      });
+      saveBibleState();
+    } catch(e){
+      reader.innerHTML = '<p class="muted">Could not reach the Bible lookup service. Check your connection and try again.</p>';
+    }
+  }
+
+  async function insertVerseIntoCurrentNote(reference, text, transName){
+    if(!CURRENT_ID){ toast('Open a note first, then come back to insert into it.'); return; }
+    var n = CACHE.get(CURRENT_ID);
+    if(!n){ n = await getNoteById(CURRENT_ID); if(n) CACHE.set(CURRENT_ID, n); }
+    if(!n) return;
+    var quote = '\n\n> **'+reference+'** ('+transName+')\n> ' + (text||'').trim().split('\n').join('\n> ') + '\n';
+    n.content = (n.content||'') + quote;
+    n.updatedAt = new Date().toISOString();
+    await setNoteRaw(n);
+    var entry = INDEX.find(function(e){ return e.id===n.id; });
+    if(entry) entry.updatedAt = n.updatedAt;
+    await setIndex(INDEX);
+    broadcastChange();
+    toast('Inserted ' + reference + ' into ' + (n.title || '(untitled)'));
   }
 
   /* ============ seed content ============ */
@@ -1708,7 +2015,7 @@
         "A few things worth knowing:\n\n" +
         "- Make folders from the sidebar to organize your notes. The graph view can step into a folder the same way, and shows the path you took at the top, like a shell prompt.\n" +
         "- Build named graphs from any note's graph icon, to group notes together across folders.\n" +
-        "- The book icon looks up a Bible passage (public-domain translations, no setup needed) and can drop it straight into your note as a quote.\n" +
+        "- The book icon opens a full Bible reader in this same window (public-domain translations, no setup needed). Insert any verse, or a whole chapter, straight into whichever note you had open.\n" +
         "- Open this page in more than one tab or window and they stay in sync with each other.\n\n" +
         "Delete this note whenever you are ready to start your own.",
       createdAt: now, updatedAt: now
