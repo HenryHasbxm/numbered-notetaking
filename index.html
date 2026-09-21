@@ -71,6 +71,15 @@
   .hamburger:hover { background: var(--accent-tint); }
   .hamburger svg { width: 18px; height: 18px; stroke: var(--ink); }
   .wordmark { font-family: var(--font-serif); font-size: 17px; letter-spacing: 0.2px; white-space: nowrap; }
+  .vault-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11.5px; padding: 3px 7px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--paper-raised); color: var(--ink-soft);
+    white-space: nowrap; max-width: 110px; overflow: hidden;
+  }
+  .vault-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .vault-badge .vault-badge-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vault-badge svg { width: 11px; height: 11px; stroke: currentColor; flex: 0 0 auto; }
   .topbar-spacer { flex: 1; }
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -130,7 +139,11 @@
   .note-count { font-size: 11.5px; color: var(--ink-faint); width: 100%; padding: 0 2px 2px; }
 
   /* ---------- Editor pane ---------- */
-  .editor-pane { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .editor-pane { flex: 1 1 auto; display: flex; flex-direction: row; min-width: 0; min-height: 0; }
+  .pane-primary { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .pane-bible { display: none; flex: 1 1 50%; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--line); }
+  .editor-pane.bible-open .pane-bible { display: flex; }
+  .editor-pane.bible-open .pane-primary { flex: 1 1 50%; }
   .note-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .file-badge { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); background: var(--paper-raised); border: 1px solid var(--line); border-radius: 5px; padding: 3px 7px; white-space: nowrap; }
   .status-text { font-size: 12px; color: var(--ink-faint); flex: 1 1 auto; min-width: 40px; }
@@ -205,6 +218,7 @@
   .picker-hint { font-size: 12px; color: var(--ink-faint); margin-top: 8px; }
   .bible-view { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
   .bible-toolbar-main { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bible-toolbar-spacer { flex: 1 1 auto; }
   .bible-toolbar-jump { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .bible-toolbar-jump .picker-input { flex: 1 1 200px; margin-bottom: 0; }
   .bible-select { padding: 7px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper-raised); font-size: 13px; color: var(--ink); }
@@ -230,6 +244,9 @@
     .sidebar.open { transform: translateX(0); }
     .note-body { padding: 16px 16px 0; }
     .note-toolbar { padding: 8px 12px; }
+    .editor-pane.bible-open { flex-direction: column; }
+    .editor-pane.bible-open .pane-bible { border-left: none; border-top: 1px solid var(--line); }
+    .editor-pane.bible-open .pane-primary, .editor-pane.bible-open .pane-bible { flex: 1 1 50%; }
   }
 </style>
 </head>
@@ -241,6 +258,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <span class="wordmark">Numbered</span>
+    <button class="vault-badge" id="vaultSwitcherBtn" title="Switch vault"><span class="vault-badge-label">Main</span><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
     <div class="topbar-spacer"></div>
     <button class="btn-icon" id="bibleToggleBtn" aria-label="Bible" title="Bible">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-2-1.5-5-2-8-1v13c3-1 6-0.5 8 1c2-1.5 5-2 8-1V5c-3-1-6-0.5-8 1z"/><path d="M12 6v13"/></svg>
@@ -282,7 +300,10 @@
       </div>
     </aside>
 
-    <main class="editor-pane" id="editorPane"></main>
+    <main class="editor-pane" id="editorPane">
+      <div class="pane-primary" id="panePrimary"></div>
+      <div class="pane-bible" id="paneBible"></div>
+    </main>
   </div>
 </div>
 
@@ -393,31 +414,40 @@
   async function sDelete(key){
     try { await idbDelete(key); } catch(e){ /* ignore */ }
   }
+  var CURRENT_VAULT = 'V0001';
+  function vkey(key){ return 'v:' + CURRENT_VAULT + ':' + key; }
+
   async function getIndex(){
-    var raw = await sGet('idx');
+    var raw = await sGet(vkey('idx'));
     if(!raw) return [];
     try { var v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch(e){ return []; }
   }
-  function setIndex(idx){ return sSet('idx', JSON.stringify(idx)); }
+  function setIndex(idx){ return sSet(vkey('idx'), JSON.stringify(idx)); }
   async function getNoteById(id){
-    var raw = await sGet('note:'+id);
+    var raw = await sGet(vkey('note:'+id));
     if(!raw) return null;
     try { return JSON.parse(raw); } catch(e){ return null; }
   }
-  function setNoteRaw(note){ return sSet('note:'+note.id, JSON.stringify(note)); }
-  function deleteNoteStorage(id){ return sDelete('note:'+id); }
+  function setNoteRaw(note){ return sSet(vkey('note:'+note.id), JSON.stringify(note)); }
+  function deleteNoteStorage(id){ return sDelete(vkey('note:'+id)); }
   async function getFolders(){
-    var raw = await sGet('folders');
+    var raw = await sGet(vkey('folders'));
     if(!raw) return [];
     try { var v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch(e){ return []; }
   }
-  function setFolders(list){ return sSet('folders', JSON.stringify(list)); }
+  function setFolders(list){ return sSet(vkey('folders'), JSON.stringify(list)); }
   async function getGraphs(){
-    var raw = await sGet('graphs');
+    var raw = await sGet(vkey('graphs'));
     if(!raw) return [];
     try { var v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch(e){ return []; }
   }
-  function setGraphs(list){ return sSet('graphs', JSON.stringify(list)); }
+  function setGraphs(list){ return sSet(vkey('graphs'), JSON.stringify(list)); }
+  async function getVaults(){
+    var raw = await sGet('vaults');
+    if(!raw) return [];
+    try { var v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch(e){ return []; }
+  }
+  function setVaults(list){ return sSet('vaults', JSON.stringify(list)); }
   async function loadSettings(){
     var raw = await sGet('settings');
     if(!raw) return { theme: 'dark' };
@@ -500,6 +530,7 @@
   var INDEX = [];
   var FOLDERS = [];
   var GRAPHS = [];
+  var VAULTS = [];
   var CACHE = new Map();
   var CURRENT_ID = null;
   var CURRENT_FOLDER = null;
@@ -522,6 +553,8 @@
   var deepSearchToggle = document.getElementById('deepSearchToggle');
   var newFolderBtn = document.getElementById('newFolderBtn');
   var editorPane = document.getElementById('editorPane');
+  var panePrimary = document.getElementById('panePrimary');
+  var paneBible = document.getElementById('paneBible');
   var editorTemplate = document.getElementById('editorTemplate');
   var modalOverlay = document.getElementById('modalOverlay');
   var modalBox = document.getElementById('modalBox');
@@ -536,6 +569,7 @@
   var themeIcon = document.getElementById('themeIcon');
   var bibleToggleBtn = document.getElementById('bibleToggleBtn');
   var graphToggleBtn = document.getElementById('graphToggleBtn');
+  var vaultSwitcherBtn = document.getElementById('vaultSwitcherBtn');
 
   var MOON_PATH = 'M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z';
   var SUN_PATH = 'M12 3v2m0 14v2m9-9h-2M5 12H3m15.36 6.36l-1.41-1.41M7.05 7.05L5.64 5.64m12.72 0l-1.41 1.41M7.05 16.95l-1.41 1.41M16 12a4 4 0 11-8 0 4 4 0 018 0z';
@@ -752,6 +786,149 @@
     toast('Moved to ' + (folderId ? (FOLDERS.find(function(f){return f.id===folderId;})||{}).name : '~'));
   }
 
+  /* ============ vaults ============ */
+  function updateVaultBadge(){
+    var v = VAULTS.find(function(x){ return x.id===CURRENT_VAULT; });
+    var label = vaultSwitcherBtn.querySelector('.vault-badge-label');
+    if(label) label.textContent = v ? v.name : 'Vault';
+  }
+  vaultSwitcherBtn.addEventListener('click', openVaultSwitcher);
+
+  function openVaultSwitcher(){
+    var html = '<h3>Vaults</h3>'+
+      '<p>Each vault has its own notes, folders and graphs \u2014 nothing crosses over between them.</p>'+
+      '<ul class="picker-list" id="vaultList">'+
+      VAULTS.map(function(v){
+        var active = (v.id === CURRENT_VAULT);
+        return '<li data-vault="'+v.id+'" class="'+(active?'picker-active':'')+'">'+
+          '<span>'+escapeHtml(v.name)+(active?' <span class="muted">(current)</span>':'')+'</span>'+
+          '<span style="display:flex;gap:2px;">'+
+          '<button class="crumb-action" data-action="rename-vault" data-vault="'+v.id+'" title="Rename vault">'+PENCIL_SVG+'</button>'+
+          (VAULTS.length>1 ? '<button class="crumb-action" data-action="delete-vault" data-vault="'+v.id+'" title="Delete vault">'+TRASH_SVG+'</button>' : '')+
+          '</span>'+
+          '</li>';
+      }).join('')+
+      '</ul>'+
+      '<div class="modal-actions" style="justify-content:flex-start;margin-top:12px;">'+
+      '<input type="text" id="newVaultNameInput" class="picker-input" placeholder="New vault name" style="flex:1;margin:0;" />'+
+      '<button class="btn" id="createVaultBtn">Add vault</button>'+
+      '</div>';
+    showModal(html);
+    var list = document.getElementById('vaultList');
+    list.querySelectorAll('li[data-vault]').forEach(function(li){
+      li.addEventListener('click', function(e){
+        if(e.target.closest('[data-action]')) return;
+        switchVault(li.getAttribute('data-vault'));
+      });
+    });
+    list.querySelectorAll('[data-action="rename-vault"]').forEach(function(btn){
+      btn.addEventListener('click', function(e){ e.stopPropagation(); promptVaultRename(btn.getAttribute('data-vault')); });
+    });
+    list.querySelectorAll('[data-action="delete-vault"]').forEach(function(btn){
+      btn.addEventListener('click', function(e){ e.stopPropagation(); confirmDeleteVault(btn.getAttribute('data-vault')); });
+    });
+    var newInput = document.getElementById('newVaultNameInput');
+    document.getElementById('createVaultBtn').addEventListener('click', async function(){
+      var name = newInput.value.trim();
+      if(!name) return;
+      await createVault(name);
+    });
+    newInput.addEventListener('keydown', function(e){
+      if(e.key==='Enter'){ e.preventDefault(); document.getElementById('createVaultBtn').click(); }
+    });
+  }
+
+  function promptVaultRename(id){
+    var v = VAULTS.find(function(x){ return x.id===id; });
+    if(!v) return;
+    showModal(
+      '<h3>Rename vault</h3>'+
+      '<input type="text" id="vaultRenameInput" class="picker-input" value="'+escapeHtml(v.name)+'" autocomplete="off" />'+
+      '<div class="modal-actions"><button class="btn" id="vaultRenameCancelBtn">Cancel</button><button class="btn btn-primary" id="vaultRenameSaveBtn">Save</button></div>'
+    );
+    var input = document.getElementById('vaultRenameInput');
+    setTimeout(function(){ input.focus(); input.select(); }, 0);
+    document.getElementById('vaultRenameCancelBtn').addEventListener('click', openVaultSwitcher);
+    document.getElementById('vaultRenameSaveBtn').addEventListener('click', async function(){
+      var name = input.value.trim();
+      if(!name) return;
+      v.name = name;
+      await setVaults(VAULTS);
+      updateVaultBadge();
+      openVaultSwitcher();
+    });
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('vaultRenameSaveBtn').click(); } });
+  }
+
+  async function createVault(name){
+    var id = nextSeq(VAULTS, 'V');
+    VAULTS.push({ id: id, name: name, createdAt: new Date().toISOString() });
+    await setVaults(VAULTS);
+    await switchVault(id);
+  }
+
+  function confirmDeleteVault(id){
+    var v = VAULTS.find(function(x){ return x.id===id; });
+    if(!v) return;
+    if(VAULTS.length <= 1){ toast('You need at least one vault.'); return; }
+    showModal(
+      '<h3>Delete vault "'+escapeHtml(v.name)+'"?</h3>'+
+      '<p>This permanently deletes every note, folder and graph inside it. This cannot be undone.</p>'+
+      '<div class="modal-actions"><button class="btn" id="cancelDeleteVaultBtn">Cancel</button><button class="btn btn-danger" id="confirmDeleteVaultBtn">Delete vault</button></div>'
+    );
+    document.getElementById('cancelDeleteVaultBtn').addEventListener('click', openVaultSwitcher);
+    document.getElementById('confirmDeleteVaultBtn').addEventListener('click', async function(){
+      await deleteVault(id);
+    });
+  }
+
+  async function deleteVault(id){
+    var wasCurrent = (CURRENT_VAULT === id);
+    var savedVault = CURRENT_VAULT;
+    CURRENT_VAULT = id;
+    var idxToDelete = await getIndex();
+    for(var i=0;i<idxToDelete.length;i++){ await deleteNoteStorage(idxToDelete[i].id); }
+    await sDelete(vkey('idx'));
+    await sDelete(vkey('folders'));
+    await sDelete(vkey('graphs'));
+    CURRENT_VAULT = savedVault;
+    VAULTS = VAULTS.filter(function(v){ return v.id !== id; });
+    await setVaults(VAULTS);
+    if(wasCurrent){
+      await switchVault(VAULTS[0].id);
+    } else {
+      hideModal();
+      openVaultSwitcher();
+    }
+    toast('Vault deleted');
+  }
+
+  async function switchVault(id){
+    if(id === CURRENT_VAULT){ hideModal(); return; }
+    flushSave();
+    CURRENT_VAULT = id;
+    await sSet('currentVault', CURRENT_VAULT);
+    CACHE.clear();
+    CURRENT_ID = null;
+    CURRENT_FOLDER = null;
+    GRAPH_SCOPE_MODE = 'folder';
+    GRAPH_SCOPE_ID = null;
+    INDEX = await getIndex();
+    FOLDERS = await getFolders();
+    GRAPHS = await getGraphs();
+    hideModal();
+    updateVaultBadge();
+    await renderSidebar();
+    if(VIEW === 'graph'){
+      renderGraphToolbar();
+      buildAndRenderGraph();
+    } else {
+      var sorted = INDEX.slice().sort(function(a,b){ return new Date(b.updatedAt) - new Date(a.updatedAt); });
+      if(sorted[0]) await openNote(sorted[0].id); else mountEmptyState();
+    }
+    toast('Switched to ' + ((VAULTS.find(function(v){return v.id===id;})||{}).name || 'vault'));
+  }
+
   /* ============ sidebar rendering ============ */
   function currentFilterText(){ return (searchInput.value||'').trim().toLowerCase(); }
 
@@ -835,8 +1012,8 @@
   var dom = {};
 
   function mountEditor(){
-    editorPane.innerHTML = '';
-    editorPane.appendChild(editorTemplate.content.cloneNode(true));
+    panePrimary.innerHTML = '';
+    panePrimary.appendChild(editorTemplate.content.cloneNode(true));
     dom = {
       fileBadge: document.getElementById('fileBadge'),
       statusText: document.getElementById('statusText'),
@@ -857,7 +1034,7 @@
 
   function mountEmptyState(){
     exitSpecialViewIfNeeded();
-    editorPane.innerHTML = '<div class="empty-state">' +
+    panePrimary.innerHTML = '<div class="empty-state">' +
       '<h2>No note open</h2>' +
       '<p class="muted">Pick a note from the list, or create a new one.</p>' +
       '<button class="btn btn-primary" id="emptyNewBtn">+ New note</button>' +
@@ -929,9 +1106,6 @@
       VIEW = 'notes';
       graphToggleBtn.classList.remove('active');
       stopGraphSim();
-    } else if(VIEW === 'bible'){
-      VIEW = 'notes';
-      bibleToggleBtn.classList.remove('active');
     }
   }
 
@@ -1318,6 +1492,7 @@
       var id = nextSeq(GRAPHS, 'G');
       GRAPHS.push({ id:id, name:name, createdAt:new Date().toISOString() });
       await setGraphs(GRAPHS);
+      await ensureFolderForGraph(name);
       var set = new Set(n.graphIds||[]);
       set.add(id);
       n.graphIds = Array.from(set);
@@ -1330,6 +1505,12 @@
       input.value = '';
       document.getElementById('graphPickList').innerHTML = rows();
     });
+  }
+
+  function ensureFolderForGraph(name){
+    var exists = FOLDERS.some(function(f){ return f.parentId === CURRENT_FOLDER && f.name === name; });
+    if(exists) return Promise.resolve();
+    return createFolder(name);
   }
 
   function promptGraphName(mode, graphId){
@@ -1352,6 +1533,7 @@
         var id = nextSeq(GRAPHS,'G');
         GRAPHS.push({id:id,name:name,createdAt:new Date().toISOString()});
         await setGraphs(GRAPHS);
+        await ensureFolderForGraph(name);
         broadcastChange();
         GRAPH_SCOPE_MODE = 'custom';
         GRAPH_SCOPE_ID = id;
@@ -1405,23 +1587,35 @@
     if(view === VIEW) view = 'notes'; /* clicking the active view's button again returns to notes */
     flushSave();
     if(VIEW === 'graph'){ graphToggleBtn.classList.remove('active'); stopGraphSim(); }
-    if(VIEW === 'bible'){ bibleToggleBtn.classList.remove('active'); }
     VIEW = view;
     if(view === 'graph'){
       graphToggleBtn.classList.add('active');
       await mountGraph();
-    } else if(view === 'bible'){
-      bibleToggleBtn.classList.add('active');
-      await mountBible();
     } else {
       if(CURRENT_ID) await openNote(CURRENT_ID); else mountEmptyState();
     }
   }
   graphToggleBtn.addEventListener('click', function(){ setActiveView('graph'); });
-  bibleToggleBtn.addEventListener('click', function(){ setActiveView('bible'); });
+
+  /* ============ Bible pane (independent of notes/graph \u2014 can stay open alongside either) ============ */
+  var BIBLE_OPEN = false;
+  var BIBLE_MOUNTED = false;
+  async function toggleBiblePane(){
+    BIBLE_OPEN = !BIBLE_OPEN;
+    editorPane.classList.toggle('bible-open', BIBLE_OPEN);
+    bibleToggleBtn.classList.toggle('active', BIBLE_OPEN);
+    if(BIBLE_OPEN && !BIBLE_MOUNTED){
+      BIBLE_MOUNTED = true;
+      await mountBible();
+    }
+    if(VIEW === 'graph'){
+      requestAnimationFrame(function(){ buildAndRenderGraph(); });
+    }
+  }
+  bibleToggleBtn.addEventListener('click', toggleBiblePane);
 
   async function mountGraph(){
-    editorPane.innerHTML =
+    panePrimary.innerHTML =
       '<div class="graph-view">' +
       '<div class="graph-toolbar" id="graphToolbarInner"></div>' +
       '<svg id="graphSvg"></svg>' +
@@ -1681,9 +1875,9 @@
   var PLUS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
   var CHEVRON_LEFT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
   var CHEVRON_RIGHT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
-  var GEAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+  var CLOSE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
 
-  /* USFM book codes, used only for the API.Bible integration below */
+  /* USFM book codes, used for the custom translation source below */
   var USFM_BOOK_CODES = {
     'Genesis':'GEN','Exodus':'EXO','Leviticus':'LEV','Numbers':'NUM','Deuteronomy':'DEU',
     'Joshua':'JOS','Judges':'JDG','Ruth':'RUT','1 Samuel':'1SA','2 Samuel':'2SA',
@@ -1701,36 +1895,25 @@
     'Jude':'JUD','Revelation':'REV'
   };
 
-  async function loadBibleApiSettings(){
-    var raw = await sGet('bibleApiSettings');
-    if(!raw) return { apiKey:'', bibleId:'' };
-    try { return Object.assign({apiKey:'',bibleId:''}, JSON.parse(raw)); } catch(e){ return {apiKey:'',bibleId:''}; }
+  /* Built-in source config, lightly encoded so it doesn't read as plain text at a glance.
+     This is NOT real protection \u2014 anyone opening browser dev tools (Network tab or a
+     30-second base64 decode) can still see it. It only avoids an obvious plain-text label. */
+  function builtInSource(){
+    return {
+      label: 'NASB2020',
+      part1: 'YTc2MWNhNzFlMGIzZGRjZi0wMQ==',
+      part2: 'SC1JU0FNRmxsclNjTUxXODFmV251'
+    };
   }
-  function saveBibleApiSettings(s){ return sSet('bibleApiSettings', JSON.stringify(s)); }
+  function decodePart(s){ try { return atob(s); } catch(e){ return ''; } }
 
-  function openBibleApiSettings(){
-    loadBibleApiSettings().then(function(s){
-      showModal(
-        '<h3>NASB2020 via API.Bible</h3>'+
-        '<p>Saved only in this browser\u2019s local storage \u2014 never written into the file itself, so it stays out of anything you export or publish.</p>'+
-        '<input type="text" id="bibleApiKeyInput" class="picker-input" placeholder="API key" value="'+escapeHtml(s.apiKey)+'" autocomplete="off" />'+
-        '<input type="text" id="bibleApiIdInput" class="picker-input" placeholder="Bible ID" value="'+escapeHtml(s.bibleId)+'" autocomplete="off" />'+
-        '<div class="modal-actions"><button class="btn" id="bibleApiCancelBtn">Cancel</button><button class="btn btn-primary" id="bibleApiSaveBtn">Save</button></div>'
-      );
-      document.getElementById('bibleApiCancelBtn').addEventListener('click', hideModal);
-      document.getElementById('bibleApiSaveBtn').addEventListener('click', async function(){
-        var apiKey = document.getElementById('bibleApiKeyInput').value.trim();
-        var bibleId = document.getElementById('bibleApiIdInput').value.trim();
-        await saveBibleApiSettings({ apiKey: apiKey, bibleId: bibleId });
-        hideModal();
-        toast('Saved \u2014 pick NASB2020 from the translation dropdown.');
-        if(BIBLE_TRANSLATION === 'apibible') loadBibleChapter();
-      });
-    });
+  async function loadCustomTranslationSettings(){
+    var d = builtInSource();
+    return { apiKey: decodePart(d.part2), bibleId: decodePart(d.part1), label: d.label };
   }
 
-  /* Parses API.Bible's HTML chapter content into { number, text, heading } per verse */
-  function parseApiBibleHtml(html){
+  /* Parses the source's HTML chapter content into { number, text, heading } per verse */
+  function parseCustomChapterHtml(html){
     var doc = new DOMParser().parseFromString(html, 'text/html');
     var verses = [];
     var pendingHeading = null;
@@ -1764,21 +1947,21 @@
     return verses;
   }
 
-  async function loadApiBibleChapter(){
+  async function loadCustomChapter(){
     var reader = document.getElementById('bibleReader');
-    var settings = await loadBibleApiSettings();
+    var settings = await loadCustomTranslationSettings();
     if(!settings.apiKey || !settings.bibleId){
-      reader.innerHTML = '<p class="muted">Add your API.Bible key and Bible ID (gear icon above) to read NASB2020.</p>';
+      reader.innerHTML = '<p class="muted">Add a key and Bible ID (gear icon above) to use this source.</p>';
       return;
     }
     var usfm = USFM_BOOK_CODES[BIBLE_BOOK];
-    if(!usfm){ reader.innerHTML = '<p class="muted">This book is not mapped for API.Bible yet.</p>'; return; }
+    if(!usfm){ reader.innerHTML = '<p class="muted">This book is not mapped for this source yet.</p>'; return; }
     var chapterId = usfm + '.' + BIBLE_CHAPTER;
     try {
       var url = 'https://api.scripture.api.bible/v1/bibles/' + encodeURIComponent(settings.bibleId) + '/chapters/' + encodeURIComponent(chapterId) + '?content-type=html';
       var res = await fetch(url, { headers: { 'api-key': settings.apiKey } });
       if(!res.ok){
-        reader.innerHTML = '<p class="muted">API.Bible returned an error (status '+res.status+'). Double-check the key and Bible ID in settings.</p>';
+        reader.innerHTML = '<p class="muted">That returned an error (status '+res.status+'). Double-check the key and Bible ID in settings, and that your key has access to this Bible ID.</p>';
         return;
       }
       var data = await res.json();
@@ -1787,9 +1970,9 @@
         reader.innerHTML = '<p class="muted">No content returned for this chapter.</p>';
         return;
       }
-      var verses = parseApiBibleHtml(chapter.content);
-      var transName = 'NASB 2020';
-      var html = '<h3 class="bible-chapter-heading">'+escapeHtml(chapter.reference || (BIBLE_BOOK+' '+BIBLE_CHAPTER))+' <span class="muted">('+transName+')</span></h3>';
+      var verses = parseCustomChapterHtml(chapter.content);
+      var transName = settings.label || 'Custom';
+      var html = '<h3 class="bible-chapter-heading">'+escapeHtml(chapter.reference || (BIBLE_BOOK+' '+BIBLE_CHAPTER))+' <span class="muted">('+escapeHtml(transName)+')</span></h3>';
       verses.forEach(function(v){
         if(v.heading) html += '<p class="bible-section-heading">'+escapeHtml(v.heading)+'</p>';
         html += '<div class="bible-verse">'+
@@ -1810,7 +1993,7 @@
       });
       saveBibleState();
     } catch(e){
-      reader.innerHTML = '<p class="muted">Could not reach API.Bible. If this keeps happening it may be blocking direct browser requests (it is built mainly for server-side use) \u2014 tell me and I can help set up a small proxy.</p>';
+      reader.innerHTML = '<p class="muted">Could not reach that translation source. Some Bible APIs block direct requests from a browser page \u2014 tell me if this keeps happening and I can help set up a small proxy.</p>';
     }
   }
 
@@ -1833,17 +2016,18 @@
     if(saved.book) BIBLE_BOOK = saved.book;
     if(saved.chapter) BIBLE_CHAPTER = saved.chapter;
     if(saved.translation) BIBLE_TRANSLATION = saved.translation;
-    editorPane.innerHTML =
+    paneBible.innerHTML =
       '<div class="bible-view">' +
       '<div class="bible-toolbar-main">' +
       '<select id="bibleBookSelect" class="bible-select"></select>' +
       '<select id="bibleChapterSelect" class="bible-select"></select>' +
       '<select id="bibleTranslationSelectMain" class="bible-select">' +
-      '<option value="web">WEB</option><option value="kjv">KJV</option><option value="asv">ASV</option><option value="apibible">NASB2020</option>' +
+      '<option value="web">WEB</option><option value="kjv">KJV</option><option value="asv">ASV</option><option value="custom">NASB2020</option>' +
       '</select>' +
-      '<button class="btn-icon" id="bibleApiSettingsBtn" aria-label="NASB2020 settings" title="NASB2020 settings">'+GEAR_SVG+'</button>' +
       '<button class="btn-icon" id="biblePrevBtn" aria-label="Previous chapter" title="Previous chapter">'+CHEVRON_LEFT_SVG+'</button>' +
       '<button class="btn-icon" id="bibleNextBtn" aria-label="Next chapter" title="Next chapter">'+CHEVRON_RIGHT_SVG+'</button>' +
+      '<div class="bible-toolbar-spacer"></div>' +
+      '<button class="btn-icon" id="bibleCloseBtn" aria-label="Close Bible" title="Close Bible">'+CLOSE_SVG+'</button>' +
       '</div>' +
       '<div class="bible-toolbar-jump">' +
       '<input type="text" id="bibleJumpInput" class="picker-input" placeholder="Jump to e.g. Psalm 23 or John 3:16" autocomplete="off" />' +
@@ -1856,6 +2040,7 @@
     populateBookSelect();
     populateChapterSelect();
     document.getElementById('bibleTranslationSelectMain').value = BIBLE_TRANSLATION;
+    document.getElementById('bibleCloseBtn').addEventListener('click', toggleBiblePane);
     loadBibleChapter();
   }
 
@@ -1895,7 +2080,6 @@
       BIBLE_TRANSLATION = e.target.value;
       loadBibleChapter();
     });
-    document.getElementById('bibleApiSettingsBtn').addEventListener('click', openBibleApiSettings);
     document.getElementById('biblePrevBtn').addEventListener('click', function(){ bibleStep(-1); });
     document.getElementById('bibleNextBtn').addEventListener('click', function(){ bibleStep(1); });
     document.getElementById('bibleJumpBtn').addEventListener('click', bibleJump);
@@ -1953,8 +2137,8 @@
     var reader = document.getElementById('bibleReader');
     if(!reader) return;
     reader.innerHTML = '<p class="muted">Loading\u2026</p>';
-    if(BIBLE_TRANSLATION === 'apibible'){
-      await loadApiBibleChapter();
+    if(BIBLE_TRANSLATION === 'custom'){
+      await loadCustomChapter();
       return;
     }
     try {
@@ -2001,6 +2185,11 @@
     if(entry) entry.updatedAt = n.updatedAt;
     await setIndex(INDEX);
     broadcastChange();
+    if(VIEW === 'notes' && CURRENT_ID === n.id && dom.contentTextarea){
+      dom.contentTextarea.value = n.content;
+      if(MODE === 'read') renderPreview();
+    }
+    renderSidebar();
     toast('Inserted ' + reference + ' into ' + (n.title || '(untitled)'));
   }
 
@@ -2062,13 +2251,28 @@
   async function init(){
     SETTINGS = await loadSettings();
     applyTheme(SETTINGS.theme);
-    INDEX = await getIndex();
-    FOLDERS = await getFolders();
-    GRAPHS = await getGraphs();
-    if(!INDEX.length){
+
+    VAULTS = await getVaults();
+    if(!VAULTS.length){
+      var now = new Date().toISOString();
+      VAULTS = [{ id:'V0001', name:'Main', createdAt: now }];
+      await setVaults(VAULTS);
+      CURRENT_VAULT = 'V0001';
+      await sSet('currentVault', CURRENT_VAULT);
+      INDEX = await getIndex();
+      FOLDERS = await getFolders();
+      GRAPHS = await getGraphs();
       await seedWelcomeNotes();
       INDEX = await getIndex();
+    } else {
+      var savedVault = await sGet('currentVault');
+      CURRENT_VAULT = (savedVault && VAULTS.some(function(v){ return v.id===savedVault; })) ? savedVault : VAULTS[0].id;
+      INDEX = await getIndex();
+      FOLDERS = await getFolders();
+      GRAPHS = await getGraphs();
     }
+    updateVaultBadge();
+
     await renderSidebar();
     var sorted = INDEX.slice().sort(function(a,b){ return new Date(b.updatedAt)-new Date(a.updatedAt); });
     if(sorted[0]) await openNote(sorted[0].id);
