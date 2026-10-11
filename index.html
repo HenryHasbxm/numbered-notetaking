@@ -10,12 +10,12 @@
     --paper-raised: #F1EEF5;
     --ink: #120D16;
     --ink-soft: #5C5266;
-    --ink-faint: #8B8093;
-    --line: #E2DCE6;
+    --ink-faint: #726579;
+    --line: #87848A;
     --accent: #4B2E68;
     --accent-contrast: #FFFFFF;
     --accent-tint: #ECE5F0;
-    --new-link: #8D7B9C;
+    --new-link: #765F87;
     --new-link-tint: #F1EAF5;
     --danger: #120D16;
     --danger-tint: #ECE9ED;
@@ -29,16 +29,46 @@
     --paper-raised: #17131C;
     --ink: #F1EEF5;
     --ink-soft: #A99DB8;
-    --ink-faint: #726A80;
-    --line: #2B2433;
+    --ink-faint: #8A8195;
+    --line: #6A6570;
     --accent: #A98FD1;
     --accent-contrast: #140E1B;
     --accent-tint: #241C2E;
-    --new-link: #7A6B8C;
+    --new-link: #9986AE;
     --new-link-tint: #221D29;
     --danger: #F1EEF5;
     --danger-tint: #201C24;
     color-scheme: dark;
+  }
+  [data-tint="black"] {
+    --paper: #F9F9F9;
+    --paper-raised: #EFEFEF;
+    --ink: #0F0F0F;
+    --ink-soft: #565656;
+    --ink-faint: #696969;
+    --line: #858585;
+    --accent: #383838;
+    --accent-contrast: #FFFFFF;
+    --accent-tint: #E7E7E7;
+    --new-link: #676767;
+    --new-link-tint: #ECECEC;
+    --danger: #0F0F0F;
+    --danger-tint: #EAEAEA;
+  }
+  [data-theme="dark"][data-tint="black"] {
+    --paper: #0A0A0A;
+    --paper-raised: #151515;
+    --ink: #EFEFEF;
+    --ink-soft: #A2A2A2;
+    --ink-faint: #848484;
+    --line: #676767;
+    --accent: #999999;
+    --accent-contrast: #140E1B;
+    --accent-tint: #1F1F1F;
+    --new-link: #8D8D8D;
+    --new-link-tint: #1F1F1F;
+    --danger: #EFEFEF;
+    --danger-tint: #1D1D1D;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -216,6 +246,9 @@
   .picker-list li:hover, .picker-list li.picker-active { background: var(--accent-tint); }
   .picker-list .file-id { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
   .picker-hint { font-size: 12px; color: var(--ink-faint); margin-top: 8px; }
+  .settings-label { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .about-content p { font-size: 13px; color: var(--ink-soft); margin: 0 0 10px; line-height: 1.5; }
+  .about-content strong { color: var(--ink); }
   .bible-view { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
   .bible-toolbar-main { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .bible-toolbar-spacer { flex: 1 1 auto; }
@@ -293,8 +326,11 @@
         <div class="note-count" id="noteCount"></div>
         <button class="btn" id="importBtn">Import .md</button>
         <button class="btn" id="exportBtn">Export vault</button>
-        <button class="btn-icon" id="themeToggle" aria-label="Toggle dark mode">
-          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        <button class="btn-icon" id="settingsBtn" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </button>
+        <button class="btn-icon" id="aboutBtn" aria-label="About and privacy">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
         </button>
         <input type="file" id="importInput" multiple accept=".md,.markdown,text/markdown,text/plain" />
       </div>
@@ -450,8 +486,8 @@
   function setVaults(list){ return sSet('vaults', JSON.stringify(list)); }
   async function loadSettings(){
     var raw = await sGet('settings');
-    if(!raw) return { theme: 'dark' };
-    try { return Object.assign({theme:'dark'}, JSON.parse(raw)); } catch(e){ return { theme: 'dark' }; }
+    if(!raw) return { theme: 'dark', tint: 'purple' };
+    try { return Object.assign({theme:'dark', tint:'purple'}, JSON.parse(raw)); } catch(e){ return { theme: 'dark', tint: 'purple' }; }
   }
   function saveSettings(s){ return sSet('settings', JSON.stringify(s)); }
 
@@ -538,7 +574,7 @@
   var VIEW = 'notes'; // 'notes' | 'graph'
   var GRAPH_SCOPE_MODE = 'folder'; // 'folder' | 'custom'
   var GRAPH_SCOPE_ID = null;
-  var SETTINGS = { theme: 'dark' };
+  var SETTINGS = { theme: 'dark', tint: 'purple' };
   var SORT_MODE = 'recent';
   var titleAtOpen = '';
   var wikiTrigger = null;
@@ -565,18 +601,44 @@
   var importBtn = document.getElementById('importBtn');
   var importInput = document.getElementById('importInput');
   var exportBtn = document.getElementById('exportBtn');
-  var themeToggle = document.getElementById('themeToggle');
-  var themeIcon = document.getElementById('themeIcon');
+  var settingsBtn = document.getElementById('settingsBtn');
+  var aboutBtn = document.getElementById('aboutBtn');
   var bibleToggleBtn = document.getElementById('bibleToggleBtn');
   var graphToggleBtn = document.getElementById('graphToggleBtn');
   var vaultSwitcherBtn = document.getElementById('vaultSwitcherBtn');
 
-  var MOON_PATH = 'M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z';
-  var SUN_PATH = 'M12 3v2m0 14v2m9-9h-2M5 12H3m15.36 6.36l-1.41-1.41M7.05 7.05L5.64 5.64m12.72 0l-1.41 1.41M7.05 16.95l-1.41 1.41M16 12a4 4 0 11-8 0 4 4 0 018 0z';
 
   /* ============ modal helpers ============ */
-  function showModal(html){ modalBox.innerHTML = html; modalOverlay.classList.add('open'); }
-  function hideModal(){ modalOverlay.classList.remove('open'); modalBox.innerHTML=''; wikiTrigger = null; }
+  var lastFocusedBeforeModal = null;
+  function showModal(html){
+    lastFocusedBeforeModal = document.activeElement;
+    modalBox.innerHTML = html;
+    modalBox.setAttribute('role', 'dialog');
+    modalBox.setAttribute('aria-modal', 'true');
+    modalOverlay.classList.add('open');
+  }
+  function hideModal(){
+    modalOverlay.classList.remove('open');
+    modalBox.innerHTML='';
+    wikiTrigger = null;
+    if(lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function'){
+      lastFocusedBeforeModal.focus();
+    }
+    lastFocusedBeforeModal = null;
+  }
+  function getFocusableInModal(){
+    return Array.prototype.slice.call(modalBox.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ));
+  }
+  modalBox.addEventListener('keydown', function(e){
+    if(e.key !== 'Tab') return;
+    var focusables = getFocusableInModal();
+    if(!focusables.length) return;
+    var first = focusables[0], last = focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  });
   modalOverlay.addEventListener('click', function(e){ if(e.target === modalOverlay) hideModal(); });
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape'){ hideModal(); closeDrawer(); }
@@ -602,19 +664,85 @@
 
   /* ============ theme ============ */
   function applyTheme(theme){
-    if(theme === 'dark'){
-      document.documentElement.setAttribute('data-theme','dark');
-      themeIcon.querySelector('path').setAttribute('d', SUN_PATH);
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      themeIcon.querySelector('path').setAttribute('d', MOON_PATH);
-    }
+    if(theme === 'dark'){ document.documentElement.setAttribute('data-theme','dark'); }
+    else { document.documentElement.removeAttribute('data-theme'); }
   }
-  themeToggle.addEventListener('click', function(){
-    SETTINGS.theme = (SETTINGS.theme === 'dark') ? 'light' : 'dark';
-    applyTheme(SETTINGS.theme);
+  function applyTint(tint){
+    if(tint === 'black'){ document.documentElement.setAttribute('data-tint','black'); }
+    else { document.documentElement.removeAttribute('data-tint'); }
+  }
+  function setThemeSetting(theme){
+    SETTINGS.theme = theme;
+    applyTheme(theme);
     saveSettings(SETTINGS);
-  });
+    var lightBtn = document.getElementById('themeLightBtn');
+    var darkBtn = document.getElementById('themeDarkBtn');
+    if(lightBtn) lightBtn.classList.toggle('active', theme !== 'dark');
+    if(darkBtn) darkBtn.classList.toggle('active', theme === 'dark');
+  }
+  function setTintSetting(tint){
+    SETTINGS.tint = tint;
+    applyTint(tint);
+    saveSettings(SETTINGS);
+    var purpleBtn = document.getElementById('tintPurpleBtn');
+    var blackBtn = document.getElementById('tintBlackBtn');
+    if(purpleBtn) purpleBtn.classList.toggle('active', tint !== 'black');
+    if(blackBtn) blackBtn.classList.toggle('active', tint === 'black');
+  }
+
+  /* ============ settings ============ */
+  function openSettings(){
+    showModal(
+      '<h3>Settings</h3>'+
+      '<p class="settings-label">Appearance</p>'+
+      '<div class="mode-toggle" style="margin-bottom:12px;">'+
+      '<button id="themeLightBtn" class="'+(SETTINGS.theme!=='dark'?'active':'')+'">Light</button>'+
+      '<button id="themeDarkBtn" class="'+(SETTINGS.theme==='dark'?'active':'')+'">Dark</button>'+
+      '</div>'+
+      '<p class="settings-label">Background color</p>'+
+      '<div class="mode-toggle" style="margin-bottom:16px;">'+
+      '<button id="tintPurpleBtn" class="'+(SETTINGS.tint!=='black'?'active':'')+'">Purple</button>'+
+      '<button id="tintBlackBtn" class="'+(SETTINGS.tint==='black'?'active':'')+'">Black</button>'+
+      '</div>'+
+      '<p class="settings-label">Bible translation</p>'+
+      '<select id="settingsBibleSelect" class="bible-select">'+
+      '<option value="web">WEB</option><option value="kjv">KJV</option><option value="asv">ASV</option><option value="custom">NASB2020</option>'+
+      '</select>'+
+      '<div class="modal-actions"><button class="btn btn-primary" id="settingsCloseBtn">Done</button></div>'
+    );
+    document.getElementById('settingsBibleSelect').value = BIBLE_TRANSLATION;
+    document.getElementById('themeLightBtn').addEventListener('click', function(){ setThemeSetting('light'); });
+    document.getElementById('themeDarkBtn').addEventListener('click', function(){ setThemeSetting('dark'); });
+    document.getElementById('tintPurpleBtn').addEventListener('click', function(){ setTintSetting('purple'); });
+    document.getElementById('tintBlackBtn').addEventListener('click', function(){ setTintSetting('black'); });
+    document.getElementById('settingsBibleSelect').addEventListener('change', function(e){
+      BIBLE_TRANSLATION = e.target.value;
+      saveBibleState();
+      var mainSel = document.getElementById('bibleTranslationSelectMain');
+      if(mainSel){ mainSel.value = BIBLE_TRANSLATION; }
+      if(BIBLE_OPEN) loadBibleChapter();
+    });
+    document.getElementById('settingsCloseBtn').addEventListener('click', hideModal);
+  }
+  settingsBtn.addEventListener('click', openSettings);
+
+  /* ============ about / privacy ============ */
+  function openAboutInfo(){
+    showModal(
+      '<h3>About &amp; privacy</h3>'+
+      '<div class="about-content">'+
+      '<p><strong>Where your data lives.</strong> Every note, folder, graph and vault is stored only in this browser\u2019s local database. There is no account, no sign-in, and no server of mine involved \u2014 nothing you write is uploaded anywhere.</p>'+
+      '<p><strong>What leaves this device.</strong> The only outbound requests happen when you use the Bible view: your chosen book, chapter and translation are sent to whichever source is selected (bible-api.com for WEB/KJV/ASV, or api.scripture.api.bible for NASB2020) so it can return the text. Nothing about your notes is sent with that request.</p>'+
+      '<p><strong>No tracking.</strong> No analytics, no ads, no cookies, no tracking pixels.</p>'+
+      '<p><strong>Code loaded from elsewhere.</strong> Three code libraries load from cdnjs.cloudflare.com when the page opens \u2014 marked.js (renders markdown), JSZip (builds the export zip), and D3.js (draws the graph). They run locally in your browser and do not transmit your data.</p>'+
+      '<p><strong>Fonts and icons.</strong> Text uses your device\u2019s own system fonts \u2014 nothing downloaded. Every icon here was hand-drawn in the code, not licensed from anywhere.</p>'+
+      '<p><strong>Deleting your data.</strong> Download or export any time from the sidebar. To delete everything, open the vault switcher next to the Numbered title and delete the vault \u2014 instant and permanent, since it only ever lived in this browser. One vault always stays, so the app has somewhere to open.</p>'+
+      '</div>'+
+      '<div class="modal-actions"><button class="btn btn-primary" id="aboutCloseBtn">Close</button></div>'
+    );
+    document.getElementById('aboutCloseBtn').addEventListener('click', hideModal);
+  }
+  aboutBtn.addEventListener('click', openAboutInfo);
 
   /* ============ ensure notes loaded ============ */
   async function ensureAllLoaded(){
@@ -633,9 +761,13 @@
     while(f){ path.unshift(f); f = f.parentId ? FOLDERS.find(function(x){return x.id===f.parentId;}) : null; }
     return path;
   }
+  function rootLabel(){
+    var vault = VAULTS.find(function(v){ return v.id === CURRENT_VAULT; });
+    return vault ? vault.name : 'Home';
+  }
   function renderBreadcrumbHTML(folderId){
     var path = folderPath(folderId);
-    var html = '<button class="crumb" data-crumb="">~</button>';
+    var html = '<button class="crumb" data-crumb="">'+escapeHtml(rootLabel())+'</button>';
     path.forEach(function(f, i){
       var last = (i === path.length-1);
       html += '<span class="crumb-sep">/</span>';
@@ -708,7 +840,7 @@
     var f = FOLDERS.find(function(x){ return x.id===id; });
     if(!f) return;
     var parent = f.parentId ? FOLDERS.find(function(x){return x.id===f.parentId;}) : null;
-    var parentName = parent ? parent.name : '~';
+    var parentName = parent ? parent.name : rootLabel();
     showModal(
       '<h3>Delete "'+escapeHtml(f.name)+'"?</h3>'+
       '<p>Notes and folders inside move up into '+escapeHtml(parentName)+'. Nothing is deleted.</p>'+
@@ -783,7 +915,7 @@
       dom.fileBadge.textContent = fileNameFor(n) || 'No title yet \u2014 add one to enable download';
     }
     renderSidebar();
-    toast('Moved to ' + (folderId ? (FOLDERS.find(function(f){return f.id===folderId;})||{}).name : '~'));
+    toast('Moved to ' + (folderId ? (FOLDERS.find(function(f){return f.id===folderId;})||{}).name : rootLabel()));
   }
 
   /* ============ vaults ============ */
@@ -973,17 +1105,17 @@
 
     var html = '';
     folderRows.forEach(function(f){
-      html += '<li class="folder-row" data-folder="'+f.id+'">'+FOLDER_ICON+
+      html += '<li class="folder-row" data-folder="'+f.id+'" tabindex="0" role="button" aria-label="Open folder '+escapeHtml(f.name)+'">'+FOLDER_ICON+
         '<span class="file-id">'+f.id+'</span><span class="note-title">'+escapeHtml(f.name)+'</span></li>';
     });
     noteRows.forEach(function(e){
       var active = (e.id===CURRENT_ID) ? ' active' : '';
       var locHtml = '';
       if(searching){
-        var loc = e.folderId ? folderPath(e.folderId).map(function(f){return f.name;}).join('/') : '~';
+        var loc = e.folderId ? folderPath(e.folderId).map(function(f){return f.name;}).join('/') : rootLabel();
         locHtml = ' <span class="note-loc">'+escapeHtml(loc)+'</span>';
       }
-      html += '<li class="'+active.trim()+'" data-id="'+e.id+'">'+
+      html += '<li class="'+active.trim()+'" data-id="'+e.id+'" tabindex="0" role="button" aria-label="Open note '+escapeHtml(e.title||'untitled')+'"'+(active?' aria-current="true"':'')+'>'+
         '<span class="file-id">'+e.id+'</span>'+
         '<span class="note-title">'+escapeHtml(e.title||'(untitled)')+locHtml+'</span></li>';
     });
@@ -1001,6 +1133,15 @@
     if(folderLi){ enterFolder(folderLi.getAttribute('data-folder')); return; }
     var li = e.target.closest('li[data-id]');
     if(!li) return;
+    switchNote(li.getAttribute('data-id'));
+    closeDrawer();
+  });
+  noteListEl.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    var li = e.target.closest('li[data-folder], li[data-id]');
+    if(!li) return;
+    e.preventDefault();
+    if(li.hasAttribute('data-folder')){ enterFolder(li.getAttribute('data-folder')); return; }
     switchNote(li.getAttribute('data-id'));
     closeDrawer();
   });
@@ -1075,7 +1216,8 @@
 
   function renderPreview(){
     var md = dom.contentTextarea.value;
-    var transformed = transformWikilinks(md);
+    var transformed = transformBibleRefs(md);
+    transformed = transformWikilinks(transformed);
     var html = (typeof marked !== 'undefined')
       ? (marked.parse ? marked.parse(transformed) : marked(transformed))
       : escapeHtml(transformed).replace(/\n/g,'<br>');
@@ -1088,6 +1230,13 @@
       a.setAttribute('href', 'javascript:void(0)');
       a.addEventListener('click', function(e){ e.preventDefault(); openOrCreateByTitle(title); });
     });
+    dom.preview.querySelectorAll('a[href^="#bibleref:"]').forEach(function(a){
+      var target = decodeURIComponent(a.getAttribute('href').slice('#bibleref:'.length));
+      var parts = target.split('|');
+      a.classList.add('bibleref-link');
+      a.setAttribute('href', 'javascript:void(0)');
+      a.addEventListener('click', function(e){ e.preventDefault(); openBibleToVerse(parts[0], parseInt(parts[1],10), parseInt(parts[2],10)); });
+    });
   }
 
   function transformWikilinks(md){
@@ -1097,6 +1246,46 @@
       var label = (alias || title).trim();
       var exists = titleMap.has(title.toLowerCase());
       return '['+label+'](#wikilink:'+encodeURIComponent(title)+' "'+(exists?'existing':'new')+'")';
+    });
+  }
+
+  /* Auto-detects plain-text Bible verse references ("2 Cor 5:17", "Jn 3:16") and turns
+     them into links to that verse in the Bible pane. Bare chapter references (no ":verse")
+     are left alone on purpose, and anything already inside a [[wikilink]] is left alone too. */
+  var BIBLE_REF_REGEX = null;
+  function getBibleRefRegex(){
+    if(BIBLE_REF_REGEX) return BIBLE_REF_REGEX;
+    var tokens = [];
+    BIBLE_BOOKS.forEach(function(b){ tokens.push(b[0]); });
+    Object.keys(BOOK_ABBREVIATIONS).forEach(function(k){ tokens.push(k); });
+    tokens.sort(function(a,b){ return b.length - a.length; });
+    var alternation = tokens.map(escapeRegex).join('|');
+    BIBLE_REF_REGEX = new RegExp('\\b(' + alternation + ')\\.?\\s*(\\d{1,3}):(\\d{1,3})(?:-\\d{1,3})?\\b', 'gi');
+    return BIBLE_REF_REGEX;
+  }
+  function findWikilinkSpans(md){
+    var spans = [];
+    var re = /\[\[[^\]]*\]\]/g;
+    var m;
+    while((m = re.exec(md))){ spans.push([m.index, m.index + m[0].length]); }
+    return spans;
+  }
+  function isWithinSpans(pos, len, spans){
+    for(var i=0;i<spans.length;i++){
+      if(pos < spans[i][1] && (pos+len) > spans[i][0]) return true;
+    }
+    return false;
+  }
+  function transformBibleRefs(md){
+    var re = getBibleRefRegex();
+    re.lastIndex = 0;
+    var spans = findWikilinkSpans(md);
+    return md.replace(re, function(match, bookToken, chapter, verse, offset){
+      if(isWithinSpans(offset, match.length, spans)) return match;
+      var resolved = resolveBookName(bookToken);
+      if(!resolved) return match;
+      var target = resolved + '|' + chapter + '|' + verse;
+      return '[' + match + '](#bibleref:' + encodeURIComponent(target) + ')';
     });
   }
 
@@ -2207,22 +2396,13 @@
       var html = '<h3 class="bible-chapter-heading">'+escapeHtml(chapter.reference || (BIBLE_BOOK+' '+BIBLE_CHAPTER))+' <span class="muted">('+escapeHtml(transName)+')</span></h3>';
       verses.forEach(function(v){
         if(v.heading) html += '<p class="bible-section-heading">'+escapeHtml(v.heading)+'</p>';
-        html += '<div class="bible-verse">'+
+        html += '<div class="bible-verse" data-verse="'+escapeHtml(String(v.number))+'">'+
           '<span class="verse-num">'+escapeHtml(String(v.number))+'</span>'+
           '<span class="verse-text">'+escapeHtml(v.text)+'</span>'+
-          '<button class="verse-insert" data-verse="'+escapeHtml(String(v.number))+'" title="Insert into note">'+PLUS_SVG+'</button>'+
           '</div>';
       });
       if(chapter.copyright){ html += '<p class="bible-copyright muted">'+escapeHtml(chapter.copyright)+'</p>'; }
       reader.innerHTML = html;
-      lastChapterData = { book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION, verses: verses.map(function(v){ return {verse:v.number, text:v.text}; }), transName: transName };
-      reader.querySelectorAll('.verse-insert').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var vnum = btn.getAttribute('data-verse');
-          var v = verses.find(function(x){ return String(x.number)===vnum; });
-          if(v) insertVerseIntoCurrentNote(BIBLE_BOOK+' '+BIBLE_CHAPTER+':'+vnum, v.text, transName);
-        });
-      });
       saveBibleState();
     } catch(e){
       reader.innerHTML = '<p class="muted">Could not reach that translation source. Some Bible APIs block direct requests from a browser page \u2014 tell me if this keeps happening and I can help set up a small proxy.</p>';
@@ -2231,8 +2411,7 @@
 
   var BIBLE_BOOK = 'John';
   var BIBLE_CHAPTER = 3;
-  var BIBLE_TRANSLATION = 'web';
-  var lastChapterData = null;
+  var BIBLE_TRANSLATION = 'custom';
 
   async function loadBibleState(){
     var raw = await sGet('bibleState');
@@ -2243,11 +2422,7 @@
     sSet('bibleState', JSON.stringify({ book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION }));
   }
 
-  async function mountBible(){
-    var saved = await loadBibleState();
-    if(saved.book) BIBLE_BOOK = saved.book;
-    if(saved.chapter) BIBLE_CHAPTER = saved.chapter;
-    if(saved.translation) BIBLE_TRANSLATION = saved.translation;
+  function buildBibleShell(){
     paneBible.innerHTML =
       '<div class="bible-view">' +
       '<div class="bible-toolbar-main">' +
@@ -2264,7 +2439,6 @@
       '<div class="bible-toolbar-jump">' +
       '<input type="text" id="bibleJumpInput" class="picker-input" placeholder="Jump to e.g. 2 Cor 5:17 or Ps 23 (abbreviations OK)" autocomplete="off" />' +
       '<button class="btn" id="bibleJumpBtn">Go</button>' +
-      '<button class="btn" id="bibleInsertChapterBtn">Insert chapter</button>' +
       '</div>' +
       '<div class="bible-reader" id="bibleReader"><p class="muted">Loading\u2026</p></div>' +
       '</div>';
@@ -2273,7 +2447,52 @@
     populateChapterSelect();
     document.getElementById('bibleTranslationSelectMain').value = BIBLE_TRANSLATION;
     document.getElementById('bibleCloseBtn').addEventListener('click', toggleBiblePane);
+  }
+
+  async function mountBible(){
+    var saved = await loadBibleState();
+    if(saved.book) BIBLE_BOOK = saved.book;
+    if(saved.chapter) BIBLE_CHAPTER = saved.chapter;
+    if(saved.translation) BIBLE_TRANSLATION = saved.translation;
+    buildBibleShell();
     loadBibleChapter();
+  }
+
+  /* Opens the Bible pane (if needed) and jumps straight to a specific verse \u2014
+     used by the auto-detected verse links typed into notes. */
+  async function openBibleToVerse(book, chapter, verseNum){
+    BIBLE_BOOK = book;
+    BIBLE_CHAPTER = chapter;
+    if(!BIBLE_OPEN){
+      BIBLE_OPEN = true;
+      editorPane.classList.add('bible-open');
+      bibleToggleBtn.classList.add('active');
+    }
+    if(!BIBLE_MOUNTED){
+      BIBLE_MOUNTED = true;
+      buildBibleShell();
+    } else {
+      populateBookSelect();
+      populateChapterSelect();
+      var bookSel = document.getElementById('bibleBookSelect');
+      var chSel = document.getElementById('bibleChapterSelect');
+      if(bookSel) bookSel.value = BIBLE_BOOK;
+      if(chSel) chSel.value = BIBLE_CHAPTER;
+    }
+    await loadBibleChapter();
+    if(VIEW === 'graph'){ requestAnimationFrame(function(){ buildAndRenderGraph(); }); }
+    highlightVerse(verseNum);
+  }
+
+  function highlightVerse(verseNum){
+    var reader = document.getElementById('bibleReader');
+    if(!reader) return;
+    reader.querySelectorAll('.bible-verse.verse-target').forEach(function(el){ el.classList.remove('verse-target'); });
+    var row = reader.querySelector('.bible-verse[data-verse="'+verseNum+'"]');
+    if(row){
+      row.classList.add('verse-target');
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
   }
 
   function populateBookSelect(){
@@ -2316,13 +2535,6 @@
     document.getElementById('bibleNextBtn').addEventListener('click', function(){ bibleStep(1); });
     document.getElementById('bibleJumpBtn').addEventListener('click', bibleJump);
     document.getElementById('bibleJumpInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); bibleJump(); } });
-    document.getElementById('bibleInsertChapterBtn').addEventListener('click', async function(){
-      if(!CURRENT_ID){ toast('Open a note first, then come back to insert into it.'); return; }
-      if(!lastChapterData || !lastChapterData.verses.length){ toast('Nothing loaded yet.'); return; }
-      var d = lastChapterData;
-      var body = d.verses.map(function(v){ return v.verse+' '+(v.text||'').trim(); }).join(' ');
-      await insertVerseIntoCurrentNote(d.book+' '+d.chapter, body, d.transName);
-    });
   }
 
   function bibleStep(delta){
@@ -2401,21 +2613,12 @@
       var transName = data.translation_name || BIBLE_TRANSLATION.toUpperCase();
       var html = '<h3 class="bible-chapter-heading">'+escapeHtml(BIBLE_BOOK)+' '+BIBLE_CHAPTER+' <span class="muted">('+escapeHtml(transName)+')</span></h3>';
       verses.forEach(function(v){
-        html += '<div class="bible-verse">'+
+        html += '<div class="bible-verse" data-verse="'+v.verse+'">'+
           '<span class="verse-num">'+v.verse+'</span>'+
           '<span class="verse-text">'+escapeHtml((v.text||'').trim())+'</span>'+
-          '<button class="verse-insert" data-verse="'+v.verse+'" title="Insert into note">'+PLUS_SVG+'</button>'+
           '</div>';
       });
       reader.innerHTML = html;
-      lastChapterData = { book: BIBLE_BOOK, chapter: BIBLE_CHAPTER, translation: BIBLE_TRANSLATION, verses: verses, transName: transName };
-      reader.querySelectorAll('.verse-insert').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var vnum = btn.getAttribute('data-verse');
-          var v = verses.find(function(x){ return String(x.verse)===vnum; });
-          if(v) insertVerseIntoCurrentNote(BIBLE_BOOK+' '+BIBLE_CHAPTER+':'+vnum, v.text, transName);
-        });
-      });
       saveBibleState();
     } catch(e){
       reader.innerHTML = '<p class="muted">Could not reach the Bible lookup service. Check your connection and try again.</p>';
@@ -2501,6 +2704,7 @@
   async function init(){
     SETTINGS = await loadSettings();
     applyTheme(SETTINGS.theme);
+    applyTint(SETTINGS.tint);
 
     VAULTS = await getVaults();
     if(!VAULTS.length){
